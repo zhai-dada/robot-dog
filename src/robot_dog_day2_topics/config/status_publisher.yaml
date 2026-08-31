@@ -1,0 +1,6 @@
+status_publisher:
+  ros__parameters:
+    robot_name: robot_dog_sim
+    state: STANDING
+    publish_period_ms: 500
+    battery_percentage: 95.0

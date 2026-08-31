@@ -1,0 +1,4 @@
+string robot_name
+string state
+uint64 sequence
+float32 battery_percentage
