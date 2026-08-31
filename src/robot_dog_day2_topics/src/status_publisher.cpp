@@ -18,14 +18,14 @@ public:
 		state_ = this->declare_parameter<std::string>("state", "STANDING");
 		publish_period_ms_ = this->declare_parameter<int>("publish_period_ms", 500);
 		battery_percentage_ = this->declare_parameter<double>("battery_percentage", 100.0);
-		temperature_celsius_ = this->declare_parameter<std::float_t>("temperature_celsius_", 25.0);
+		temperature_celsius_ = this->declare_parameter<std::float_t>("temperature_celsius", 25.00);
 
 		if (publish_period_ms_ <= 0)
 		{
 			throw std::invalid_argument("publish_period_ms must be greater than zero");
 		}
 
-		if(temperature_celsius_ <= -273.15)
+		if(temperature_celsius_ <= -273.2)
 		{
 			throw std::invalid_argument("temperature_celsius_ must be greater than -273.15");
 		}
@@ -62,7 +62,7 @@ private:
 
 		RCLCPP_INFO(
 			this->get_logger(),
-			"发布: robot_name=%s state=%s sequence=%" PRIu64 " battery=%.1f%% temperature=%.1f%% °C", 
+			"发布: robot_name=%s state=%s sequence=%" PRIu64 " battery=%.1f%% temperature=%.2f °C", 
 			message.robot_name.c_str(), message.state.c_str(), message.sequence,
 			message.battery_percentage, message.temperature_celsius);
 	}

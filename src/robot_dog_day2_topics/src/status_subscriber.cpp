@@ -26,7 +26,7 @@ private:
 	{
 		RCLCPP_INFO(
 			this->get_logger(),
-			"接收: robot_name=%s state=%s sequence=%" PRIu64 " battery=%.1f%% temperature=%.1f%% °C",
+			"接收: robot_name=%s state=%s sequence=%" PRIu64 " battery=%.1f%% temperature=%.2f °C",
 			message->robot_name.c_str(), message->state.c_str(), message->sequence,
 			message->battery_percentage, message->temperature_celsius);
 	}

@@ -22,7 +22,7 @@ public:
     {
         if(message->battery_percentage <= 30.0)
         {
-            RCLCPP_WARN(this->get_logger(), "接收: robot_name=%s state=%s sequence=%" PRIu64 " battery=%.1f%% temperature=%.1f%% °C",
+            RCLCPP_WARN(this->get_logger(), "接收: robot_name=%s state=%s sequence=%" PRIu64 " battery=%.1f%% temperature=%.2f °C",
                 message->robot_name.c_str(), message->state.c_str(), message->sequence,
                 message->battery_percentage, message->temperature_celsius);
         }
