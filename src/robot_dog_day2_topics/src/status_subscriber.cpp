@@ -8,8 +8,7 @@
 class StatusSubscriber final : public rclcpp::Node
 {
 public:
-	StatusSubscriber()
-		: Node("status_subscriber")
+	StatusSubscriber() : Node("status_subscriber")
 	{
 		subscription_ = this->create_subscription<robot_dog_interfaces::msg::RobotStatus>(
 			"robot_dog/status",
@@ -23,14 +22,13 @@ public:
 	}
 
 private:
-	void statusCallback(
-		const robot_dog_interfaces::msg::RobotStatus::ConstSharedPtr message)
+	void statusCallback(const robot_dog_interfaces::msg::RobotStatus::ConstSharedPtr message)
 	{
 		RCLCPP_INFO(
 			this->get_logger(),
-			"接收: robot_name=%s state=%s sequence=%" PRIu64 " battery=%.1f%%",
+			"接收: robot_name=%s state=%s sequence=%" PRIu64 " battery=%.1f%% temperature=%.1f%% °C",
 			message->robot_name.c_str(), message->state.c_str(), message->sequence,
-			message->battery_percentage);
+			message->battery_percentage, message->temperature_celsius);
 	}
 
 	rclcpp::Subscription<robot_dog_interfaces::msg::RobotStatus>::SharedPtr subscription_;

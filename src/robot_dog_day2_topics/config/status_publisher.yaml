@@ -4,3 +4,4 @@ status_publisher:
     state: STANDING
     publish_period_ms: 500
     battery_percentage: 95.0
+    temperature_celsius: 25.0
