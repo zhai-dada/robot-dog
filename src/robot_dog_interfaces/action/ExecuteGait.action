@@ -1,0 +1,11 @@
+string gait_name
+uint32 step_count
+uint32 step_period_ms
+---
+bool success
+string message
+uint32 completed_steps
+---
+uint32 current_step
+uint32 total_steps
+string state

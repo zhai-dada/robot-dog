@@ -18,24 +18,28 @@
 - 📝 详细文档：docs/README_day2.md
 
 ### 第3天：服务通信
-- [ ] 服务端和客户端
-- [ ] 自定义服务类型
-- [ ] 服务调用
+- [x] 服务端和客户端
+- [x] 自定义服务类型
+- [x] 服务调用
+- 📝 详细文档：docs/README_day3.md
 
 ### 第4天：动作通信
-- [ ] 动作客户端
-- [ ] 动作服务端
-- [ ] 长期任务处理
+- [x] 动作客户端
+- [x] 动作服务端
+- [x] 长期任务处理
+- 📝 详细文档：docs/README_day4.md
 
 ### 第5天：Launch文件
-- [ ] Python Launch
+- [x] Python Launch
 - [ ] XML Launch
-- [ ] 批量启动节点
+- [x] 批量启动节点
+- 📝 详细文档：docs/README_day5.md
 
 ### 第6天：参数配置
-- [ ] 参数声明
-- [ ] 参数获取
-- [ ] 参数回调
+- [x] 参数声明
+- [x] 参数获取
+- [x] 参数回调
+- 📝 详细文档：docs/README_day6.md
 
 ### 第7天：QoS策略
 - [ ] 可靠性策略
@@ -66,13 +70,25 @@ robot-dog/
 │   ├── robot_dog_basics_cpp/      # C++节点包
 │   ├── robot_dog_day1_exercises/  # 第一天C++练习包
 │   ├── robot_dog_interfaces/      # ROS2消息接口包
-│   └── robot_dog_day2_topics/     # 第二天Topic示例
+│   ├── robot_dog_day2_topics/     # 第二天Topic示例
+│   ├── robot_dog_day3_services/   # 第三天Service示例
+│   ├── robot_dog_day4_actions/    # 第四天Action示例
+│   ├── robot_bringup/              # 系统Launch入口
+│   └── robot_dog_day6_parameters/ # 第六天参数示例
 ├── docs/
 │   ├── README_day1.md
-│   └── README_day2.md
+│   ├── README_day2.md
+│   ├── README_day3.md
+│   ├── README_day4.md
+│   ├── README_day5.md
+│   └── README_day6.md
 ├── scripts/
 │   ├── test_day1.sh
-│   └── test_day2.sh
+│   ├── test_day2.sh
+│   ├── test_day3.sh
+│   ├── test_day4.sh
+│   ├── test_day5.sh
+│   └── test_day6.sh
 ├── install/                       # 编译输出
 ├── build/                         # 编译中间文件
 ├── log/                           # 编译日志

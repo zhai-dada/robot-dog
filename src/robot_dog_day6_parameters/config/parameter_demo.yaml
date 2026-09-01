@@ -1,0 +1,5 @@
+parameter_demo:
+  ros__parameters:
+    robot_name: robot_dog_parameter_demo
+    publish_rate_hz: 2.0
+    enabled: true

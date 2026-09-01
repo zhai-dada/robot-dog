@@ -1,0 +1,3 @@
+state_server:
+  ros__parameters:
+    initial_state: STANDING
