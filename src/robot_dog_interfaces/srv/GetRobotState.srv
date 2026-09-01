@@ -1,0 +1,3 @@
+---
+string current_state
+float32 battery_percentage
