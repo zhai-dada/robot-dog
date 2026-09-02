@@ -9,6 +9,8 @@ def generate_launch_description():
     robot_name = LaunchConfiguration('robot_name')
     initial_state = LaunchConfiguration('initial_state')
 
+    use_sim_time = LaunchConfiguration('use_sim_time', default='true')
+    
     status_parameters = PathJoinSubstitution([
         FindPackageShare('robot_dog_day2_topics'),
         'config',
@@ -33,7 +35,7 @@ def generate_launch_description():
             executable='status_publisher',
             name='status_publisher',
             output='screen',
-            parameters=[status_parameters, {'robot_name': robot_name}],
+            parameters=[status_parameters, {'robot_name': robot_name}, {'use_sim_time': use_sim_time}],
         ),
         Node(
             package='robot_dog_day2_topics',
@@ -46,19 +48,20 @@ def generate_launch_description():
             executable='state_server',
             name='state_server',
             output='screen',
-            parameters=[state_parameters, {'initial_state': initial_state}],
+            parameters=[state_parameters, {'initial_state': initial_state}, {'use_sim_time': use_sim_time}],
         ),
         Node(
             package='robot_dog_day4_actions',
             executable='gait_action_server',
             name='gait_action_server',
             output='screen',
+            parameters=[{'use_sim_time': use_sim_time}],
         ),
         Node(
             package='robot_dog_day6_parameters',
             executable='parameter_demo',
             name='parameter_demo',
             output='screen',
-            parameters=[parameter_parameters],
+            parameters=[parameter_parameters, {'use_sim_time': use_sim_time}],
         ),
     ])
