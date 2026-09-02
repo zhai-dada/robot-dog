@@ -1,9 +1,11 @@
 #include <chrono>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <string>
 #include <thread>
-#include <vector>
+#include <atomic>
+#include <stdexcept>
 
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
@@ -30,12 +32,9 @@ public:
 
 	~GaitActionServer() override
 	{
-		for (auto & execution_thread : execution_threads_)
+		if (execution_thread_.joinable())
 		{
-			if (execution_thread.joinable())
-			{
-				execution_thread.join();
-			}
+			execution_thread_.join();
 		}
 	}
 
@@ -47,6 +46,13 @@ private:
 		if (!isValidGait(goal->gait_name) || goal->step_count == 0 || goal->step_period_ms == 0)
 		{
 			RCLCPP_WARN(this->get_logger(), "拒绝非法步态目标");
+			return rclcpp_action::GoalResponse::REJECT;
+		}
+
+		bool expected = false;
+		if (!is_executing_.compare_exchange_strong(expected, true))
+		{
+			RCLCPP_WARN(this->get_logger(), "已有步态目标在执行，拒绝新目标");
 			return rclcpp_action::GoalResponse::REJECT;
 		}
 
@@ -67,8 +73,15 @@ private:
 
 	void handleAccepted(const std::shared_ptr<GoalHandleExecuteGait> goal_handle)
 	{
-		execution_threads_.emplace_back(
-			std::bind(&GaitActionServer::execute, this, std::placeholders::_1), goal_handle);
+		if (execution_thread_.joinable())
+		{
+			execution_thread_.join();
+		}
+
+		execution_thread_ = std::thread(
+			&GaitActionServer::execute,
+			this,
+			goal_handle);
 	}
 
 	bool isValidGait(const std::string & gait_name) const
@@ -78,43 +91,101 @@ private:
 
 	void execute(const std::shared_ptr<GoalHandleExecuteGait> goal_handle)
 	{
-		const auto goal = goal_handle->get_goal();
-		auto feedback = std::make_shared<ExecuteGait::Feedback>();
-		auto result = std::make_shared<ExecuteGait::Result>();
-
-		for (std::uint32_t step = 1; step <= goal->step_count; ++step)
+		struct ExecutionFlagGuard
 		{
-			if (goal_handle->is_canceling())
+			explicit ExecutionFlagGuard(std::atomic<bool> & flag) : flag_(flag)
 			{
-				result->success = false;
-				result->message = "gait execution canceled";
-				result->completed_steps = step - 1;
-				goal_handle->canceled(result);
-				RCLCPP_INFO(this->get_logger(), "步态执行已取消: completed_steps=%u", result->completed_steps);
-				return;
 			}
 
-			feedback->current_step = step;
-			feedback->total_steps = goal->step_count;
-			feedback->state = "EXECUTING_" + goal->gait_name;
-			goal_handle->publish_feedback(feedback);
+			~ExecutionFlagGuard()
+			{
+				flag_.store(false);
+			}
 
-			RCLCPP_INFO(
-				this->get_logger(),
-				"步态反馈: gait=%s step=%u/%u",
-				goal->gait_name.c_str(), step, goal->step_count);
-			std::this_thread::sleep_for(std::chrono::milliseconds(goal->step_period_ms));
+			std::atomic<bool> & flag_;
+		} execution_flag_guard(is_executing_);
+
+		auto result = std::make_shared<ExecuteGait::Result>();
+
+		try
+		{
+			const auto goal = goal_handle->get_goal();
+			auto feedback = std::make_shared<ExecuteGait::Feedback>();
+
+			for (std::uint32_t step = 1; step <= goal->step_count; ++step)
+			{
+				if (goal_handle->is_canceling())
+				{
+					result->success = false;
+					result->message = "gait execution canceled";
+					result->completed_steps = step - 1;
+					goal_handle->canceled(result);
+					RCLCPP_INFO(
+						this->get_logger(),
+						"步态执行已取消: completed_steps=%u",
+						result->completed_steps);
+					return;
+				}
+
+				feedback->current_step = step;
+				feedback->total_steps = goal->step_count;
+				feedback->state = "EXECUTING_" + goal->gait_name;
+				goal_handle->publish_feedback(feedback);
+
+				RCLCPP_INFO(
+					this->get_logger(),
+					"步态反馈: gait=%s step=%u/%u",
+					goal->gait_name.c_str(), step, goal->step_count);
+
+				const auto deadline = std::chrono::steady_clock::now() +
+					std::chrono::milliseconds(goal->step_period_ms);
+				while (std::chrono::steady_clock::now() < deadline)
+				{
+					if (goal_handle->is_canceling())
+					{
+						result->success = false;
+						result->message = "gait execution canceled";
+						result->completed_steps = step - 1;
+						goal_handle->canceled(result);
+						RCLCPP_INFO(
+							this->get_logger(),
+							"步态执行已取消: completed_steps=%u",
+							result->completed_steps);
+						return;
+					}
+
+					std::this_thread::sleep_for(std::chrono::milliseconds(10));
+				}
+			}
+
+			result->success = true;
+			result->message = "gait execution completed: " + goal->gait_name;
+			result->completed_steps = goal->step_count;
+			goal_handle->succeed(result);
+			RCLCPP_INFO(this->get_logger(), "%s", result->message.c_str());
 		}
+		catch (const std::exception & e)
+		{
+			result->success = false;
+			result->message = "gait execution failed: " + std::string(e.what());
+			result->completed_steps = 0;
 
-		result->success = true;
-		result->message = "gait execution completed: " + goal->gait_name;
-		result->completed_steps = goal->step_count;
-		goal_handle->succeed(result);
-		RCLCPP_INFO(this->get_logger(), "%s", result->message.c_str());
+			if (goal_handle->is_canceling())
+			{
+				goal_handle->canceled(result);
+			}
+			else
+			{
+				goal_handle->abort(result);
+			}
+
+			RCLCPP_ERROR(this->get_logger(), "%s", result->message.c_str());
+		}
 	}
 
 	rclcpp_action::Server<ExecuteGait>::SharedPtr action_server_;
-	std::vector<std::thread> execution_threads_;
+	std::thread execution_thread_;
+	std::atomic<bool> is_executing_{false};
 };
 
 int main(int argc, char * argv[])

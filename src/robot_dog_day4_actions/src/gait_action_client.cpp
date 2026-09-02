@@ -1,4 +1,5 @@
 #include <chrono>
+#include <csignal>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -8,6 +9,16 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "robot_dog_interfaces/action/execute_gait.hpp"
+
+namespace
+{
+	volatile std::sig_atomic_t interrupt_requested = 0;
+
+	void signalHandler(int)
+	{
+		interrupt_requested = 1;
+	}
+}
 
 class GaitActionClient final : public rclcpp::Node
 {
@@ -34,6 +45,11 @@ public:
 
 	int sendGoal()
 	{
+		if (interrupt_requested != 0)
+		{
+			return 130;
+		}
+
 		if (!action_client_->wait_for_action_server(std::chrono::milliseconds(timeout_ms_)))
 		{
 			RCLCPP_ERROR(this->get_logger(), "Action服务不可用: /robot_dog/execute_gait");
@@ -58,9 +74,22 @@ public:
 			std::placeholders::_2);
 
 		auto goal_future = action_client_->async_send_goal(goal, options);
-		const auto goal_result = rclcpp::spin_until_future_complete(
-			this->get_node_base_interface(), goal_future,
-			std::chrono::milliseconds(timeout_ms_));
+		auto goal_result = rclcpp::FutureReturnCode::TIMEOUT;
+		const auto goal_deadline = std::chrono::steady_clock::now() +
+			std::chrono::milliseconds(timeout_ms_);
+		while (goal_result == rclcpp::FutureReturnCode::TIMEOUT && interrupt_requested == 0 &&
+			std::chrono::steady_clock::now() < goal_deadline)
+		{
+			goal_result = rclcpp::spin_until_future_complete(
+				this->get_node_base_interface(), goal_future,
+				std::chrono::milliseconds(100));
+		}
+
+		if (interrupt_requested != 0)
+		{
+			RCLCPP_WARN(this->get_logger(), "收到中断请求，目标尚未确认");
+			return 130;
+		}
 
 		if (goal_result != rclcpp::FutureReturnCode::SUCCESS)
 		{
@@ -76,13 +105,55 @@ public:
 		}
 
 		auto result_future = action_client_->async_get_result(goal_handle);
-		const auto result_code = rclcpp::spin_until_future_complete(
-			this->get_node_base_interface(), result_future,
-			std::chrono::milliseconds(timeout_ms_ + step_count_ * step_period_ms_));
+		auto result_code = rclcpp::FutureReturnCode::TIMEOUT;
+		const auto result_timeout_ms = timeout_ms_ + step_count_ * step_period_ms_;
+		const auto result_deadline = std::chrono::steady_clock::now() +
+			std::chrono::milliseconds(result_timeout_ms);
+		while (result_code == rclcpp::FutureReturnCode::TIMEOUT && interrupt_requested == 0 &&
+			std::chrono::steady_clock::now() < result_deadline)
+		{
+			result_code = rclcpp::spin_until_future_complete(
+				this->get_node_base_interface(), result_future,
+				std::chrono::milliseconds(100));
+		}
+
+		if (interrupt_requested != 0)
+		{
+			RCLCPP_WARN(this->get_logger(), "收到中断请求，正在取消步态目标");
+			auto cancel_future = action_client_->async_cancel_goal(goal_handle);
+			const auto cancel_code = rclcpp::spin_until_future_complete(
+				this->get_node_base_interface(), cancel_future,
+				std::chrono::milliseconds(timeout_ms_));
+			if (cancel_code != rclcpp::FutureReturnCode::SUCCESS)
+			{
+				RCLCPP_ERROR(this->get_logger(), "等待取消响应失败");
+				return 1;
+			}
+
+			const auto canceled_result_code = rclcpp::spin_until_future_complete(
+				this->get_node_base_interface(), result_future,
+				std::chrono::milliseconds(timeout_ms_));
+			if (canceled_result_code != rclcpp::FutureReturnCode::SUCCESS)
+			{
+				RCLCPP_ERROR(this->get_logger(), "等待Canceled结果失败");
+				return 1;
+			}
+
+			const auto canceled_result = result_future.get();
+			RCLCPP_INFO(
+				this->get_logger(),
+				"取消完成: completed_steps=%u",
+				canceled_result.result->completed_steps);
+			return 130;
+		}
 
 		if (result_code != rclcpp::FutureReturnCode::SUCCESS)
 		{
 			RCLCPP_ERROR(this->get_logger(), "等待Action结果失败或超时");
+			auto cancel_future = action_client_->async_cancel_goal(goal_handle);
+			rclcpp::spin_until_future_complete(
+				this->get_node_base_interface(), cancel_future,
+				std::chrono::milliseconds(timeout_ms_));
 			return 1;
 		}
 
@@ -120,7 +191,13 @@ private:
 
 int main(int argc, char * argv[])
 {
-	rclcpp::init(argc, argv);
+	std::signal(SIGINT, signalHandler);
+	std::signal(SIGTERM, signalHandler);
+	rclcpp::init(
+		argc,
+		argv,
+		rclcpp::InitOptions(),
+		rclcpp::SignalHandlerOptions::None);
 	int return_code = 0;
 
 	try
