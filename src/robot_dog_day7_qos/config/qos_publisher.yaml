@@ -1,0 +1,9 @@
+qos_status_publisher:
+  ros__parameters:
+    robot_name: robot_dog_qos
+    reliability: reliable
+    durability: volatile
+    history: keep_last
+    depth: 10
+    publish_period_ms: 200
+    publish_count: 0

@@ -1,0 +1,6 @@
+qos_status_subscriber:
+  ros__parameters:
+    reliability: reliable
+    durability: volatile
+    history: keep_last
+    depth: 10

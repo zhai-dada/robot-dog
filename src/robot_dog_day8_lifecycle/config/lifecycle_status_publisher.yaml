@@ -1,0 +1,6 @@
+lifecycle_status_publisher:
+  ros__parameters:
+    robot_name: lifecycle_robot_dog
+    publish_period_ms: 500
+    battery_percentage: 90.0
+    fail_configuration: false
